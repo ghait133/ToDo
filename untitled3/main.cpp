@@ -4,6 +4,28 @@
 #include <form.h>
 
 using namespace std;
+static char* trim_whitespaces(char *str)
+{
+    char *end;
+
+    // trim leading space
+    while(isspace(*str))
+        str++;
+
+    if(*str == 0) // all spaces?
+        return str;
+
+    // trim trailing space
+    end = str + strnlen(str, 128) - 1;
+
+    while(end > str && isspace(*end))
+        end--;
+
+    // write new null terminator
+    *(end+1) = '\0';
+
+    return str;
+}
 
 void creatTaskinput(){
      FORM *form;
@@ -49,8 +71,56 @@ void creatTaskinput(){
     refresh();
     wrefresh(win_body);
     wrefresh(win_form);
-    ch = getch();
-    while (getch() != 97)
+    while (1){
+        ch = getch();
+        switch (ch) {
+            case KEY_DOWN:
+                form_driver(form, REQ_NEXT_FIELD);
+                form_driver(form, REQ_END_LINE);
+                break;
+
+            case KEY_UP:
+                form_driver(form, REQ_NEXT_FIELD);
+                form_driver(form, REQ_END_LINE);
+                break;
+
+            case KEY_LEFT:
+                form_driver(form, REQ_PREV_CHAR);
+                break;
+
+            case KEY_RIGHT:
+                form_driver(form, REQ_NEXT_CHAR);
+                break;
+
+                // Delete the char before cursor
+            case KEY_BACKSPACE:
+            case 127:
+                form_driver(form, REQ_DEL_PREV);
+                break;
+
+                // Delete the char under the cursor
+            case KEY_DC:
+                form_driver(form, REQ_DEL_CHAR);
+                break;
+
+            default:
+                form_driver(form, ch);
+                break;
+        }
+
+
+        wrefresh(win_form);
+        if ( ch == 97){
+            break;
+        }else if (ch == KEY_F(2)){
+
+            printw("%s", trim_whitespaces(field_buffer(fields[1], 0)));
+            printw("%s", trim_whitespaces(field_buffer(fields[3], 0)));
+
+            refresh();
+            pos_form_cursor(form);
+        }
+    }
 
     printw("jetzt muss er weg1");
     unpost_form(form);
@@ -159,16 +229,12 @@ void hauptmenu(){
         if ( ch == 10){
             if ( menuItem[heighlight].compare("Erstelle") == 0){
                 creatTaskinput();
+                wrefresh(menu);
+                refresh();
                 //mvprintw(15, 50, menuItem[heighlight].c_str());
-            } else if (menuItem[heighlight].compare("Verlassen") ){
-
+            } else if (menuItem[heighlight].compare("Verlassen") == 0){
+                break;
             }
-            mvprintw(15, 50, menuItem[heighlight].c_str());
-            wrefresh(menu);
-            refresh();
-
-        } else if (ch == 103){
-            break;
         }
 
     }while(1);
