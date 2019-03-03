@@ -2,6 +2,11 @@
 #include <curses.h>
 #include <menu.h>
 #include <form.h>
+#include <vector>
+#include <zconf.h>
+#include <fstream>
+#include <sstream>
+#include "TaskList.h"
 
 using namespace std;
 static char* trim_whitespaces(char *str)
@@ -27,7 +32,8 @@ static char* trim_whitespaces(char *str)
     return str;
 }
 
-void creatTaskinput(){
+string * creatTaskinput(){
+
      FORM *form;
      FIELD *fields[5];
      WINDOW *win_body, *win_form;
@@ -36,13 +42,16 @@ void creatTaskinput(){
     initscr();
     noecho();
     cbreak();
+    curs_set(1);
     keypad(stdscr, TRUE);
-
-    win_body = newwin(24, 80, 15, 50);
+    int xmax, ymax;
+    getmaxyx(stdscr, ymax,xmax);
+    win_body = newwin(16, 60, ymax/2 - 6, xmax/2 - 30);
     box(win_body, 0, 0);
-    win_form = derwin(win_body, 20, 78, 3, 1);
+    win_form = derwin(win_body, 12, 58, 3, 1);
     box(win_form, 0, 0);
-    mvwprintw(win_body, 1, 2, "Press F1 to quit and F2 to print fields content");
+    mvwprintw(win_body, 1, 2, "Fenster mittels F1-Funktionstaste beenden");
+    mvwprintw(win_body, 2, 2, "Bestätigen und speichern mit Enter");
 
     fields[0] = new_field(1, 10, 0, 0, 0, 0);
     fields[1] = new_field(1, 40, 0, 15, 0, 0);
@@ -50,10 +59,10 @@ void creatTaskinput(){
     fields[3] = new_field(1, 40, 2, 15, 0, 0);
     fields[4] = NULL;
 
-    set_field_buffer(fields[0], 0, "label1");
-    set_field_buffer(fields[1], 0, "val1");
-    set_field_buffer(fields[2], 0, "label2");
-    set_field_buffer(fields[3], 0, "val2");
+    set_field_buffer(fields[0], 0, "Titel");
+    set_field_buffer(fields[1], 0, "");
+    set_field_buffer(fields[2], 0, "Bemerkung");
+    set_field_buffer(fields[3], 0, "");
 
     set_field_opts(fields[0], O_VISIBLE | O_PUBLIC | O_AUTOSKIP);
     set_field_opts(fields[1], O_VISIBLE | O_PUBLIC | O_EDIT | O_ACTIVE);
@@ -65,12 +74,14 @@ void creatTaskinput(){
 
     form = new_form(fields);
     set_form_win(form, win_form);
-    set_form_sub(form, derwin(win_form, 18, 76, 1, 1));
+    set_form_sub(form, derwin(win_form, 10, 56, 1, 1));
     post_form(form);
 
     refresh();
+    touchwin(win_form);
     wrefresh(win_body);
     wrefresh(win_form);
+    string * taskData = new string [2];
     while (1){
         ch = getch();
         switch (ch) {
@@ -92,13 +103,11 @@ void creatTaskinput(){
                 form_driver(form, REQ_NEXT_CHAR);
                 break;
 
-                // Delete the char before cursor
             case KEY_BACKSPACE:
             case 127:
                 form_driver(form, REQ_DEL_PREV);
                 break;
 
-                // Delete the char under the cursor
             case KEY_DC:
                 form_driver(form, REQ_DEL_CHAR);
                 break;
@@ -110,146 +119,357 @@ void creatTaskinput(){
 
 
         wrefresh(win_form);
-        if ( ch == 97){
+        if ( ch == KEY_F(1)){
+            taskData = NULL;
             break;
-        }else if (ch == KEY_F(2)){
+        }else if (ch == 10){
+            form_driver(form, REQ_NEXT_FIELD);
+            form_driver(form, REQ_PREV_FIELD);
 
-            printw("%s", trim_whitespaces(field_buffer(fields[1], 0)));
-            printw("%s", trim_whitespaces(field_buffer(fields[3], 0)));
+            taskData[0] = (trim_whitespaces(field_buffer(fields[1], 0)));
+            taskData[1] = (trim_whitespaces(field_buffer(fields[3], 0)));
 
-            refresh();
-            pos_form_cursor(form);
+            if (strcmp("",(trim_whitespaces(field_buffer(fields[1], 0)))) == 0){
+                mvwprintw(win_form, 8, 2, "%s","Ein Titel für die Aufgabe ist Erforderlich");
+                mvwprintw(win_form, 9, 2, "%s","zum abbrechen F1 drucken");
+            } else{
+                break;
+            }
+
         }
     }
 
-    printw("jetzt muss er weg1");
     unpost_form(form);
-    free_form(form);
+
     free_field(fields[0]);
     free_field(fields[1]);
     free_field(fields[2]);
     free_field(fields[3]);
-    delwin(win_form);
-    werase(win_form);
-    wrefresh(win_form);
-    delwin(win_body);
-    werase(win_body);
-    wrefresh(win_body);
-    endwin();
+    free_form(form);
 
+
+
+    werase(win_form);
+    werase(win_body);
+    delwin(win_form);
+    delwin(win_body);
+
+    endwin();
+    return taskData;
 }
 
-void taskmenu(){
+string * taskmenu( TaskList *pList, int id){
+    string * taskData;
     int ch;
     initscr();
-    //atexit(quit);
-    //clear();
     noecho();
-    //curs_set(0);
+    curs_set(0);
     cbreak();
     nl();
-
-    WINDOW *taskmenu =newwin(12, 40, 20, 35);
-
-    string menu_item [3]={"Bearbeiten","Löchen","istFertig"};
-
-    box(taskmenu, 0, 0);
-    mvwprintw(taskmenu, 1, 5, "***** Testmenü *****");
-    mvwprintw(taskmenu,9, 2, "Programm mittels Menü oder F1-Funk- ");
-    mvwprintw(taskmenu,10,2,"tionstaste beenden");
-    printw("hier is der menu");
-    refresh();
-    wrefresh(taskmenu);
-    keypad(taskmenu, TRUE);
-    free(taskmenu);
-
-    endwin();
-}
-
-void taskTabel(){
-    int ch;
-    initscr();
-    noecho();
-    cbreak();
-
     int xmax, ymax;
     getmaxyx(stdscr, ymax,xmax);
-    WINDOW * tasktabel = newwin(ymax-7,xmax-3,5,1);
-    box(tasktabel,0,0);
-    refresh();
-    wrefresh(tasktabel);
-    keypad(tasktabel, TRUE);
+    WINDOW *taskmenu =newwin(12, 40, ymax/2 - 6, xmax/2 - 20);
 
-    printw(" world  ");
 
-    free(tasktabel);
-
-    endwin();
-}
-void hauptmenu(){
-    int ch = 0;
-    initscr();
-    noecho();
-    cbreak();
-
-    WINDOW * menu = newwin(4,40,1,1);
-    box(menu,0,0);
-    refresh();
-    wrefresh(menu);
-    keypad(menu,true);
-    string menuItem[2]={"Erstelle","Verlassen"};
+    box(taskmenu, 0, 0);
+    mvwprintw(taskmenu, 1, 3, "*********** Testmenu ************");
+    mvwprintw(taskmenu,9, 2, "Fenster mittels F1-Funktionstaste");
+    mvwprintw(taskmenu,10,2,"beenden");
+    wrefresh(taskmenu);
+    keypad(taskmenu, TRUE);
+    string menu_item [3]={"Bearbeiten","Loeschen","istFertig"};
     int heighlight = 0;
-    do{
-        for (int i = 0; i < 2; i++) {
+    while (1){
+        for (int i= 0 ; i < 3; i++) {
             if (i == heighlight) {
-                wattron(menu, A_REVERSE);
+                wattron(taskmenu, A_REVERSE);
             }
-            mvwprintw(menu,2, (i *20 )+ 3, menuItem[i].c_str());
-            wattroff(menu, A_REVERSE);
+            mvwprintw(taskmenu, i + 4, 15, menu_item[i].c_str());
+            wattroff(taskmenu, A_REVERSE);
         }
-        ch = wgetch(menu);
-        switch (ch) {
-            case KEY_LEFT:
+        ch = wgetch(taskmenu);
+        switch (ch){
+            case  259:
                 heighlight--;
-                if (heighlight == -1){
+                if (heighlight == -1)
                     heighlight = 0;
-                }
                 break;
-            case KEY_RIGHT:
+            case 258:
                 heighlight++;
-                if (heighlight == 2){
-                    heighlight = 1;
-                }
+                if  (heighlight == 3)
+                    heighlight =2;
                 break;
             default:
                 break;
         }
         refresh();
-        wrefresh(menu);
-        if ( ch == 10){
-            if ( menuItem[heighlight].compare("Erstelle") == 0){
-                creatTaskinput();
-                wrefresh(menu);
+        wrefresh(taskmenu);
+
+        if (ch == 10){
+            if ( menu_item[heighlight].compare("Bearbeiten") == 0){
+                string * taskData = creatTaskinput();
+                if (taskData  != NULL){
+                    vector<Task*> taskList = pList->getTaskList();
+                    for (int i = 0; i < taskList.size();i++){
+                        if (taskList[i]->getId() == id){
+                            taskList[i]->setName(taskData[0]);
+                            taskList[i]->setNote(taskData[1]);
+                            pList->setTaskList(taskList);
+                        }
+                    }
+                }
+                werase(taskmenu);
+                wrefresh(taskmenu);
+                endwin();
+                break;
+            } else if (menu_item[heighlight].compare("Loeschen") == 0){
+                vector<Task*> taskList = pList->getTaskList();
+                for (int i = 0; i < taskList.size();i++) {
+                    if (taskList[i]->getId() == id) {
+                        taskList.erase(taskList.begin() + i);
+                        pList->setTaskList(taskList);
+                    }
+                }
+                break;
+            } else if (menu_item[heighlight].compare("istFertig") == 0){
+                vector<Task*> taskList = pList->getTaskList();
+                for (int i = 0; i < taskList.size();i++){
+                    if (taskList[i]->getId() == id){
+                        bool x = true;
+                        taskList[i]->setDone(x);
+                        pList->setTaskList(taskList);
+                    }
+                }
                 refresh();
-                //mvprintw(15, 50, menuItem[heighlight].c_str());
-            } else if (menuItem[heighlight].compare("Verlassen") == 0){
+                wrefresh(taskmenu);
+                break;
+            }
+        }else if(ch == KEY_F(1)){
+            break;
+        }
+
+    }
+
+    refresh();
+    werase(taskmenu);
+    delwin(taskmenu);
+    endwin();
+    return taskData;
+}
+
+
+char *repeat(char c, int w) {
+    char *retval =(char*) malloc(w);
+    if (retval == NULL) {
+        return retval;
+    }
+    memset(retval, c, w);
+    retval[w] = '\0';
+    return retval   ;
+}
+int getColumnSize(int prozendwert){
+    int size = 0;
+    int xmax = getmaxx(stdscr) - 8;
+    size = prozendwert * xmax / 100;
+    return size;
+}
+
+void taskTabel(TaskList *pList) {
+
+    vector<Task *> taskList = pList->getTaskList();
+    int ch;
+    initscr();
+    noecho();
+    cbreak();
+    curs_set(0);
+    start_color();
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(2, COLOR_GREEN, COLOR_BLACK);
+    init_pair(3, COLOR_WHITE, COLOR_BLACK);
+
+
+
+    int xmax, ymax;
+    getmaxyx(stdscr, ymax,xmax);
+    WINDOW * tasktabel = newwin(ymax-7,xmax-3,5,1);
+    WINDOW * showNotWin = newwin(4,xmax-3 -61,1,62);
+    WINDOW * newTaskDialog = newwin(4,60,1,1);
+    box(tasktabel,0,0);
+    box(showNotWin,0,0);
+    box(newTaskDialog,0,0);
+
+    //wbkgd(tasktabel,COLOR_PAIR(1));
+
+    keypad(showNotWin, TRUE);
+    keypad(tasktabel, TRUE);
+    keypad(newTaskDialog, TRUE);
+
+    refresh();
+    wrefresh(tasktabel);
+    wrefresh(showNotWin);
+    wrefresh(newTaskDialog);
+    mvwprintw(newTaskDialog,1,1,"Zum aufgaben Erstellen 'a'  drucken");
+    mvwprintw(newTaskDialog,2,1,"Zum program verlassen F1 drucken");
+
+
+    refresh();
+    wrefresh(tasktabel);
+    wrefresh(showNotWin);
+    wrefresh(newTaskDialog);
+
+    int heighlight = 0;
+    while (1) {
+
+        vector<Task *> taskList = pList->getTaskList();
+        wclear(tasktabel);
+        box(tasktabel, 0, 0);
+        wattron(tasktabel,COLOR_PAIR(3));
+
+        mvwprintw(tasktabel, 1, 1, "%*s|%*s|%*s|%*s|%*s|%*s"
+                                                            , -getColumnSize(4), " Id"
+                                                            , -getColumnSize(44)-2, " Titel"
+                                                            ,-getColumnSize(5), " Note"
+                                                            , -getColumnSize(7), " Status"
+                                                            , -getColumnSize(20), " Erstellungsdatum"
+                                                            ,-getColumnSize(20), "Aenderungsdatum"
+                                                            );
+        mvwprintw(tasktabel, 2, 1, repeat('-', xmax - 5), "\n");
+
+        if (pList->getTaskListSize()!= 0) {
+            for (int i = 0; i < taskList.size(); i++) {
+                if (i == heighlight) {
+                    wattron(tasktabel, A_REVERSE);
+                }
+                bool note = taskList[i]->getNote().compare("");
+
+                if (taskList[i]->isDone()){
+                    wattron(tasktabel,COLOR_PAIR(2));
+                    mvwprintw(tasktabel, i + 3, 1, "%*d|%*s|%*s|%*s|%*s|%*s"
+                            , -getColumnSize(4), taskList[i]->getId()
+                            ,-getColumnSize(44)-2, taskList[i]->getName().c_str()
+                            , -getColumnSize(5), note ? "   X" : "   -"
+                            ,-getColumnSize(7), taskList[i]->isDone() ? "Erledigt" : "ist offen"
+                            , -getColumnSize(20),taskList[i]->getCreationDate().c_str()
+                            , -getColumnSize(20), taskList[i]->getEditDate().c_str()
+                    );
+                    wattron(tasktabel,COLOR_PAIR(3));
+                } else{
+                    wattron(tasktabel,COLOR_PAIR(1));
+                    mvwprintw(tasktabel, i + 3, 1, "%*d|%*s|%*s|%*s|%*s|%*s"
+                            , -getColumnSize(4), taskList[i]->getId()
+                            ,-getColumnSize(44)-2, taskList[i]->getName().c_str()
+                            , -getColumnSize(5), note ? "   X" : "   -"
+                            ,-getColumnSize(7), taskList[i]->isDone() ? "Erledigt" : "ist offen"
+                            , -getColumnSize(20),taskList[i]->getCreationDate().c_str()
+                            , -getColumnSize(20), taskList[i]->getEditDate().c_str()
+                    );
+                    wattron(tasktabel,COLOR_PAIR(3));
+                }
+
+                wattroff(tasktabel, A_REVERSE);
+            }
+            ch = wgetch(tasktabel);
+            switch (ch) {
+                case 259:
+                    heighlight--;
+                    if (heighlight == -1)
+                        heighlight = 0;
+                    wclear(showNotWin);
+                    box(showNotWin, 0, 0);
+                    mvwprintw(showNotWin, 1, 1, taskList[heighlight]->getNote().c_str());
+                    refresh();
+                    wrefresh(showNotWin);
+
+                    break;
+                case 258:
+                    heighlight++;
+                    if (heighlight == taskList.size())
+                        heighlight = taskList.size() - 1;
+                    wclear(showNotWin);
+                    box(showNotWin, 0, 0);
+                    mvwprintw(showNotWin, 1, 1, taskList[heighlight]->getNote().c_str());
+                    refresh();
+                    wrefresh(showNotWin);
+
+                    break;
+                default:
+                    break;
+            }
+
+            if (ch == 10) {
+                taskmenu(pList, taskList[heighlight]->getId());
+
+                if (pList->getTaskList().size() != taskList.size()) {
+                    heighlight--;
+                    if (heighlight == -1)
+                        heighlight = 0;
+                }
+
+                curs_set(0);
+
+            } else if (ch == 97) {
+                string *taskData = creatTaskinput();
+                if(taskData != NULL){
+                    Task *t = new Task(taskData[0], taskData[1], taskList.size() + 1);
+                    taskList.push_back(t);
+                    pList->setTaskList(taskList);
+                }
+
+            } else if (ch == KEY_F(1)) {
+                break;
+            }
+        } else{
+            mvwprintw(tasktabel,4,1,"Ihre ToDo List ist noch leer, 'a' drucken um neue Aufgaben zu erstellen" );
+            ch = wgetch(tasktabel);
+            if(ch ==97){
+                string *taskData = creatTaskinput();
+                if (taskData != NULL){
+                    Task *t = new Task(taskData[0], taskData[1], taskList.size() + 1);
+                    taskList.push_back(t);
+                    pList->setTaskList(taskList);
+                }
+
+            }else if (ch == KEY_F(1)) {
                 break;
             }
         }
+    }
 
-    }while(1);
-    refresh();
-    wrefresh(menu);
+    werase(tasktabel);
+    delwin(tasktabel);
     endwin();
+}
 
-}
-char mygetch(){
-    int ch = getch();
-    while (getch() != '\n');
-    return ch;
-}
 int main() {
-    int ch = 0;
+    TaskList *l = new TaskList();
+    vector <Task *> localList1;
+    ifstream myfile ("example.csv");
+    std::string                line;
+
+    while ( getline (myfile,line) )
+    {
+        std::stringstream          lineStream(line);
+        std::string                cell;
+        std::vector<std::string>   result;
+        while(std::getline(lineStream,cell,'|'))
+        {
+            result.push_back(cell);
+        }
+        // This checks for a trailing comma with no data after it.
+        if (!lineStream && cell.empty())
+        {
+            // If there was a trailing comma then add an empty element.
+            result.push_back("");
+        }
+        if (result.size()!=0){
+            Task * t = new Task (result[1],result[2],result[3],result[4],stoi(result[5]),stoi(result[0]));
+            localList1.push_back(t);
+        }
+
+    }
+    l->setTaskList(localList1);
+    myfile.close();
+
     initscr();
     noecho();
     cbreak();
@@ -260,27 +480,26 @@ int main() {
     refresh();
     wrefresh(mainwin);
     keypad(mainwin, TRUE);
+    taskTabel(l);
 
-    taskTabel();
-    ch = getch();
-    do{
+    localList1 = l->getTaskList();
+    std::ofstream file;
+    file.open ("example.csv");
+    for (int i = 0; i<localList1.size();i++){
 
-        if ( ch == 97){
-            hauptmenu();
-            break;
-        }if(ch == 103){
-            break;
-        }
-    }while (1);
-
-
-    //taskmenu();
-
+        file << localList1[i]->getId()<<"|"
+             << localList1[i]->getName() <<"|"
+             << localList1[i]->getNote() <<"|"
+             << localList1[i]->getCreationDate()<<"|"
+             << localList1[i]->getEditDate()<<"|"
+             << localList1[i]->isDone()<<endl;
+    }
+    file.close();
     refresh();
     wrefresh(mainwin);
 
-    getch();
-    free(mainwin);
+    werase(mainwin);
+    delwin(mainwin);
     endwin();
 
 

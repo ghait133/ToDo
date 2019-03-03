@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/ghaitelghouate/CLionProjects/untitled3/Task.h
+iostream
+-
+string
+-
+
+/Users/ghaitelghouate/CLionProjects/untitled3/TaskList.h
+vector
+-
+Task.h
+/Users/ghaitelghouate/CLionProjects/untitled3/Task.h
+
+/Users/ghaitelghouate/CLionProjects/untitled3/main.cpp
+iostream
+-
+curses.h
+-
+menu.h
+-
+form.h
+-
+vector
+-
+zconf.h
+-
+fstream
+-
+sstream
+-
+TaskList.h
+/Users/ghaitelghouate/CLionProjects/untitled3/TaskList.h
+
